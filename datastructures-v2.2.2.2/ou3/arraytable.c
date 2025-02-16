@@ -10,6 +10,7 @@
 
 struct table {
     array_1d *entries; // The table entries are stored in a directed list
+    int item_count;
     compare_function *key_cmp_func;
     kill_function key_kill_func;
     kill_function value_kill_func;
@@ -20,16 +21,6 @@ typedef struct table_entry {
     void *value;
 } table_entry;
 
-// ===========INTERNAL FUNCTION IMPLEMENTATIONS ============
-
-/**
- * table_entry_create() - Allocate and populate a table entry.
- * @key: A pointer to a function to be used to compare keys.
- * @value: A pointer to a function (or NULL) to be called to
- *                 de-allocate memory for keys on remove/kill.
- *
- * Returns: A pointer to the newly created table entry.
- */
 table_entry *table_entry_create(void *key, void *value)
 {
     // Allocate space for a table entry. Use calloc as a defensive
@@ -42,12 +33,6 @@ table_entry *table_entry_create(void *key, void *value)
     return e;
 }
 
-/**
- * table_entry_kill() - Return the memory allocated to a table entry.
- * @e: The table entry to deallocate.
- *
- * Returns: Nothing.
- */
 void table_entry_kill(void *v)
 {
     table_entry *e = v; // Convert the pointer (useful if debugging the code)
@@ -56,16 +41,7 @@ void table_entry_kill(void *v)
     free(e);
 }
 
-/**
- * table_empty() - Create an empty table.
- * @key_cmp_func: A pointer to a function to be used to compare keys.
- * @key_kill_func: A pointer to a function (or NULL) to be called to
- *                 de-allocate memory for keys on remove/kill.
- * @value_kill_func: A pointer to a function (or NULL) to be called to
- *                   de-allocate memory for values on remove/kill.
- *
- * Returns: Pointer to a new table.
- */
+
 table *table_empty(compare_function *key_cmp_func,
                    kill_function key_kill_func,
                    kill_function value_kill_func)
@@ -79,16 +55,61 @@ table *table_empty(compare_function *key_cmp_func,
     t->key_kill_func = key_kill_func;
     t->value_kill_func = value_kill_func;
 
+    // Counts item in table
+    t->item_count = 0;
+
     return t;
 }
 
-/**
- * table_is_empty() - Check if a table is empty.
- * @table: Table to check.
- *
- * Returns: True if table contains no key/value pairs, false otherwise.
- */
 bool table_is_empty(const table *t)
 {
-    return dlist_is_empty(t->entries);
+    return t->item_count == 0;
+}
+
+//  Använder item count som index
+void table_insert(table *t, void *key, void *value)
+{
+    // Allocate the key/value structure.
+    table_entry *e = table_entry_create(key, value);
+
+    array_1d_set_value(t->entries, e, t->item_count);
+    t->item_count++;
+}
+
+//  Kollar efter nästa lediga position
+// void table_insert(table *t, void *key, void *value)
+// {
+//     // Allocate the key/value structure.
+//     table_entry *e = table_entry_create(key, value);
+
+//     int i = 0;
+//     while (array_1d_inspect_value(t->entries, i) != NULL)
+//     {
+//         i++;
+//     }
+
+//     array_1d_set_value(t->entries, e, i);
+//     t->item_count++;
+// }
+
+
+void *table_lookup(const table *t, const void *key)
+{
+    // Iterate over the list. Return first match.
+
+    dlist_pos pos = dlist_first(t->entries);
+
+    while (!dlist_is_end(t->entries, pos)) {
+        // Inspect the table entry
+        table_entry *e = dlist_inspect(t->entries, pos);
+        // Check if the entry key matches the search key.
+        if (t->key_cmp_func(e->key, key) == 0) {
+            // If yes, return the corresponding value pointer.
+            return e->value;
+        }
+        // Continue with the next position.
+        pos = dlist_next(t->entries, pos);
+    }
+    // No match found. Return NULL.
+    return NULL;
 }
