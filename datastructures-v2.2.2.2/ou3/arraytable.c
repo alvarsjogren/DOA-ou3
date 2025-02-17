@@ -11,6 +11,7 @@
 struct table {
     array_1d *entries; // The table entries are stored in a directed list
     int item_count;
+    int max_index;
     compare_function *key_cmp_func;
     kill_function key_kill_func;
     kill_function value_kill_func;
@@ -57,6 +58,7 @@ table *table_empty(compare_function *key_cmp_func,
 
     // Counts item in table
     t->item_count = 0;
+    t->max_index = 0;
 
     return t;
 }
@@ -66,44 +68,41 @@ bool table_is_empty(const table *t)
     return t->item_count == 0;
 }
 
-//  Använder item count som index
+// Kollar efter nästa lediga position
 void table_insert(table *t, void *key, void *value)
 {
     // Allocate the key/value structure.
     table_entry *e = table_entry_create(key, value);
 
-    array_1d_set_value(t->entries, e, t->item_count);
+    int i = array_1d_low(t->entries);
+    while (array_1d_inspect_value(t->entries, i) != NULL)
+    {
+        i++;
+        t->max_index++;
+    }
+
+    array_1d_set_value(t->entries, e, i);
     t->item_count++;
 }
-
-//  Kollar efter nästa lediga position
-// void table_insert(table *t, void *key, void *value)
-// {
-//     // Allocate the key/value structure.
-//     table_entry *e = table_entry_create(key, value);
-
-//     int i = 0;
-//     while (array_1d_inspect_value(t->entries, i) != NULL)
-//     {
-//         i++;
-//     }
-
-//     array_1d_set_value(t->entries, e, i);
-//     t->item_count++;
-// }
 
 // Vi fortsätter att anta att item count också är slutet på arrayen
 void *table_lookup(const table *t, const void *key)
 {
-    int i = 0;
-
-    while (i != t->item_count-1)
+    int i = array_1d_low(t->entries);
+    while (i <= t->max_index)
     {
         table_entry *e = array_1d_inspect_value(t->entries, i);
 
         if (t->key_cmp_func(e->key, key) == 0) {
             return e->value;
         }
+        
+        if (array_1d_inspect_value(t->entries, i) != NULL)
+        {
+            i++;
+        }
+        
+        i++;
     }
 
     return NULL;
@@ -118,28 +117,16 @@ void *table_choose_key(const table *t)
 
 void table_remove(table *t, const void *key)
 {
-    // Will be set if we need to delay a free.
     void *deferred_ptr = NULL;
 
-    // Start at beginning of the list.
-    int pos = dlist_first(t->entries);
+    int i = array_1d_low(t->entries);
+    
+    while (i <= t->max_index) {
+        table_entry *e = array_1d_inspect_value(t->entries, i);
 
-    // Iterate over the list. Remove any entries with matching keys.
-    while (!dlist_is_end(t->entries, pos)) {
-        // Inspect the table entry
-        table_entry *e = dlist_inspect(t->entries, pos);
-
-        // Compare the supplied key with the key of this entry.
         if (t->key_cmp_func(e->key, key) == 0) {
-            // If we have a match, call kill on the key
-            // and/or value if given the responsiblity
             if (t->key_kill_func != NULL) {
                 if (e->key == key) {
-                    // The given key points to the same
-                    // memory as entry->key. Freeing it here
-                    // would trigger a memory error in the
-                    // next iteration. Instead, defer free
-                    // of this pointer to the very end.
                     deferred_ptr = e->key;
                 } else {
                     t->key_kill_func(e->key);
@@ -148,18 +135,22 @@ void table_remove(table *t, const void *key)
             if (t->value_kill_func != NULL) {
                 t->value_kill_func(e->value);
             }
-            // Remove the list element itself.
-            pos = dlist_remove(t->entries, pos);
-            // Deallocate the table entry structure.
+            array_1d_set_value(t->entries, NULL, i);
             table_entry_kill(e);
+            
+            // If i is the last index
+            if (i == t->max_index)
+            {
+                t->max_index--;
+            }
+            
+            t->item_count--;
         } else {
-            // No match, move on to next element in the list.
-            pos = dlist_next(t->entries, pos);
+            i++;
         }
     }
 
     if (deferred_ptr != NULL) {
-        // Take care of the delayed free.
         t->key_kill_func(deferred_ptr);
     }
 }
@@ -169,7 +160,7 @@ void table_kill(table *t){
         // Iterate over the list. Destroy all elements.
         int i = array_1d_low(t->entries);
 
-        while(i <=(t->item_count)){
+        while (i <= t->max_index){
 
             // Inspect the key/value pair.
             table_entry *e = array_1d_inspect_value(t->entries, i);
@@ -181,7 +172,7 @@ void table_kill(table *t){
                 t->value_kill_func(e->value);
             }
             // Move on to next element.
-            i ++;
+            i++;
             // Deallocate the table entry structure.
             table_entry_kill(e);
         }
@@ -190,4 +181,17 @@ void table_kill(table *t){
         array_1d_kill(t->entries);
         // ...and the table struct.
     free(t);
+}
+
+void table_print(const table *t, inspect_callback_pair print_func)
+{
+    // Iterate over all elements. Call print_func on keys/values.
+    int i = array_1d_low(t->entries);
+
+    while (i <= t->max_index) {
+        table_entry *e = array_1d_inspect_value(t->entries, i);
+        // Call print_func
+        print_func(e->key, e->value);
+        i++;
+    }
 }
