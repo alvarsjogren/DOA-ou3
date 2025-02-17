@@ -163,3 +163,31 @@ void table_remove(table *t, const void *key)
         t->key_kill_func(deferred_ptr);
     }
 }
+
+void table_kill(table *t){
+
+        // Iterate over the list. Destroy all elements.
+        int i = array_1d_low(t->entries);
+
+        while(i <=(t->item_count)){
+
+            // Inspect the key/value pair.
+            table_entry *e = array_1d_inspect_value(t->entries, i);
+            // Kill key and/or value if given the authority to do so.
+            if (t->key_kill_func != NULL) {
+                t->key_kill_func(e->key);
+            }
+            if (t->value_kill_func != NULL) {
+                t->value_kill_func(e->value);
+            }
+            // Move on to next element.
+            i ++;
+            // Deallocate the table entry structure.
+            table_entry_kill(e);
+        }
+    
+        // Kill what's left of the list...
+        array_1d_kill(t->entries);
+        // ...and the table struct.
+    free(t);
+}
