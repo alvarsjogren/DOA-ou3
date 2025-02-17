@@ -78,7 +78,7 @@
 
 /**
  * copy_string() - Create a dynamic copy of a string.
- * @: String to be copied.
+ * @s: String to be copied.
  *
  * Allocates memory for a dynamic copy of s and copies the contents of
  * s into the copy.
