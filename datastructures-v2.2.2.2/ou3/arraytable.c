@@ -92,24 +92,74 @@ void table_insert(table *t, void *key, void *value)
 //     t->item_count++;
 // }
 
-
+// Vi fortsätter att anta att item count också är slutet på arrayen
 void *table_lookup(const table *t, const void *key)
 {
-    // Iterate over the list. Return first match.
+    int i = 0;
 
-    dlist_pos pos = dlist_first(t->entries);
+    while (i != t->item_count-1)
+    {
+        table_entry *e = array_1d_inspect_value(t->entries, i);
 
+        if (t->key_cmp_func(e->key, key) == 0) {
+            return e->value;
+        }
+    }
+
+    return NULL;
+}
+
+void *table_choose_key(const table *t)
+{
+    table_entry *e = array_1d_inspect_value(t->entries, 0);
+
+    return e->key;
+}
+
+void table_remove(table *t, const void *key)
+{
+    // Will be set if we need to delay a free.
+    void *deferred_ptr = NULL;
+
+    // Start at beginning of the list.
+    int pos = dlist_first(t->entries);
+
+    // Iterate over the list. Remove any entries with matching keys.
     while (!dlist_is_end(t->entries, pos)) {
         // Inspect the table entry
         table_entry *e = dlist_inspect(t->entries, pos);
-        // Check if the entry key matches the search key.
+
+        // Compare the supplied key with the key of this entry.
         if (t->key_cmp_func(e->key, key) == 0) {
-            // If yes, return the corresponding value pointer.
-            return e->value;
+            // If we have a match, call kill on the key
+            // and/or value if given the responsiblity
+            if (t->key_kill_func != NULL) {
+                if (e->key == key) {
+                    // The given key points to the same
+                    // memory as entry->key. Freeing it here
+                    // would trigger a memory error in the
+                    // next iteration. Instead, defer free
+                    // of this pointer to the very end.
+                    deferred_ptr = e->key;
+                } else {
+                    t->key_kill_func(e->key);
+                }
+            }
+            if (t->value_kill_func != NULL) {
+                t->value_kill_func(e->value);
+            }
+            // Remove the list element itself.
+            pos = dlist_remove(t->entries, pos);
+            // Deallocate the table entry structure.
+            table_entry_kill(e);
+        } else {
+            // No match, move on to next element in the list.
+            pos = dlist_next(t->entries, pos);
         }
-        // Continue with the next position.
-        pos = dlist_next(t->entries, pos);
     }
-    // No match found. Return NULL.
-    return NULL;
+
+    if (deferred_ptr != NULL) {
+        // Take care of the delayed free.
+        t->key_kill_func(deferred_ptr);
+    }
 }
