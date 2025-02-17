@@ -3,6 +3,7 @@
 
 #include <table.h>
 #include <array_1d.h>
+//hej hej 
 
 
 #define MAXSIZE 40000
