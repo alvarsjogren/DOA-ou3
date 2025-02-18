@@ -78,11 +78,16 @@ void table_insert(table *t, void *key, void *value)
     while (array_1d_inspect_value(t->entries, i) != NULL)
     {
         i++;
-        t->max_index++;
     }
 
     array_1d_set_value(t->entries, e, i);
     t->item_count++;
+
+    if (i > t->max_index)
+    {
+        t->max_index = i;
+    }
+    
 }
 
 // Vi fortsätter att anta att item count också är slutet på arrayen
@@ -95,11 +100,6 @@ void *table_lookup(const table *t, const void *key)
 
         if (t->key_cmp_func(e->key, key) == 0) {
             return e->value;
-        }
-        
-        if (array_1d_inspect_value(t->entries, i) != NULL)
-        {
-            i++;
         }
         
         i++;
