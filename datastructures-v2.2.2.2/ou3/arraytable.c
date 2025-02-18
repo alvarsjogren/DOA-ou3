@@ -73,15 +73,28 @@ void table_insert(table *t, void *key, void *value)
 {
     // Allocate the key/value structure.
     table_entry *e = table_entry_create(key, value);
+    bool run = true;
 
     int i = array_1d_low(t->entries);
-    while (array_1d_inspect_value(t->entries, i) != NULL)
+    
+    while (i <= array_1d_high(t->entries) && run)
     {
-        i++;
-    }
+        table_entry *n = array_1d_inspect_value(t->entries, i);
 
-    array_1d_set_value(t->entries, e, i);
-    t->item_count++;
+        if (n == NULL)
+        {
+            array_1d_set_value(t->entries, e, i);
+            t->item_count++;
+            run = false;
+        } else if (t->key_cmp_func(n->key, key) == 0)
+        {
+            array_1d_set_value(t->entries, e, i);
+            t->item_count++;
+            run = false;
+        } else {
+            i++;
+        }
+    }
 
     if (i > t->max_index)
     {
@@ -125,29 +138,15 @@ void table_remove(table *t, const void *key)
         table_entry *e = array_1d_inspect_value(t->entries, i);
 
         if (t->key_cmp_func(e->key, key) == 0) {
-            if (t->key_kill_func != NULL) {
-                if (e->key == key) {
-                    deferred_ptr = e->key;
-                } else {
-                    t->key_kill_func(e->key);
-                }
-            }
-            if (t->value_kill_func != NULL) {
-                t->value_kill_func(e->value);
-            }
             array_1d_set_value(t->entries, NULL, i);
-            table_entry_kill(e);
-            
-            // If i is the last index
-            if (i == t->max_index)
-            {
-                t->max_index--;
-            }
             
             t->item_count--;
-        } else {
-            i++;
+            if (i == t->max_index)
+            {
+                t->max_index = i;
+            }
         }
+        i++;
     }
 
     if (deferred_ptr != NULL) {
@@ -155,31 +154,32 @@ void table_remove(table *t, const void *key)
     }
 }
 
-void table_kill(table *t){
+void table_kill(table *t) {
 
-        // Iterate over the list. Destroy all elements.
-        int i = array_1d_low(t->entries);
+    // Iterate over the list. Destroy all elements.
+    int i = array_1d_low(t->entries);
 
-        while (i <= t->max_index){
+    while (i <= t->max_index){
 
-            // Inspect the key/value pair.
-            table_entry *e = array_1d_inspect_value(t->entries, i);
-            // Kill key and/or value if given the authority to do so.
-            if (t->key_kill_func != NULL) {
-                t->key_kill_func(e->key);
-            }
-            if (t->value_kill_func != NULL) {
-                t->value_kill_func(e->value);
-            }
-            // Move on to next element.
-            i++;
-            // Deallocate the table entry structure.
-            table_entry_kill(e);
+        // Inspect the key/value pair.
+        table_entry *e = array_1d_inspect_value(t->entries, i);
+        // Kill key and/or value if given the authority to do so.
+
+        if (t->key_kill_func != NULL) {
+            t->key_kill_func(e->key);
         }
-    
-        // Kill what's left of the list...
-        array_1d_kill(t->entries);
-        // ...and the table struct.
+        if (t->value_kill_func != NULL) {
+            t->value_kill_func(e->value);
+        }
+        // Move on to next element.
+        i++;
+        // Deallocate the table entry structure.
+        table_entry_kill(e);
+    }
+
+    // Kill what's left of the list...
+    array_1d_kill(t->entries);
+    // ...and the table struct.
     free(t);
 }
 
