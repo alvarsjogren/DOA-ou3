@@ -73,83 +73,78 @@ void table_insert(table *t, void *key, void *value)
 {
     // Allocate the key/value structure.
     table_entry *e = table_entry_create(key, value);
-    bool run = true;
-
-    int i = array_1d_low(t->entries);
     
-    while (i <= array_1d_high(t->entries) && run)
-    {
-        table_entry *n = array_1d_inspect_value(t->entries, i);
-
-        if (n == NULL)
-        {
-            array_1d_set_value(t->entries, e, i);
-            t->item_count++;
-            run = false;
-        } else if (t->key_cmp_func(n->key, key) == 0)
-        {
-            array_1d_set_value(t->entries, e, i);
-            t->item_count++;
-            run = false;
-        } else {
-            i++;
-        }
-    }
-
-    if (i > t->max_index)
-    {
-        t->max_index = i;
-    }
-    
+    // Funkar eftersom item count är också positionen till höger om de sista itemet
+    array_1d_set_value(t->entries, e, t->item_count);
+    t->item_count++;
 }
 
-// Vi fortsätter att anta att item count också är slutet på arrayen
 void *table_lookup(const table *t, const void *key)
 {
-    int i = array_1d_low(t->entries);
-    while (i <= t->max_index)
+    int index = array_1d_low(t->entries);
+    while (index <= t->item_count)
     {
-        table_entry *e = array_1d_inspect_value(t->entries, i);
+        table_entry *e = array_1d_inspect_value(t->entries, index);
 
         if (t->key_cmp_func(e->key, key) == 0) {
             return e->value;
         }
-        
-        i++;
+        index++;
     }
-
     return NULL;
 }
 
 void *table_choose_key(const table *t)
 {
     table_entry *e = array_1d_inspect_value(t->entries, 0);
-
     return e->key;
 }
 
 void table_remove(table *t, const void *key)
 {
+    // Will be set if we need to delay a free.
     void *deferred_ptr = NULL;
+    int index = array_1d_low(t->entries);
 
-    int i = array_1d_low(t->entries);
-    
-    while (i <= t->max_index) {
-        table_entry *e = array_1d_inspect_value(t->entries, i);
-
+    // Iterate over the list. Remove any entries with matching keys.
+    while (index <= t->item_count) {
+        table_entry *e = array_1d_inspect_value(t->entries, index);
         if (t->key_cmp_func(e->key, key) == 0) {
-            array_1d_set_value(t->entries, NULL, i);
-            
-            t->item_count--;
-            if (i == t->max_index)
-            {
-                t->max_index = i;
+            // If we have a match, call kill on the key
+            // and/or value if given the responsiblity
+            if (t->key_kill_func != NULL) {
+                if (e->key == key) {
+                    // The given key points to the same
+                    // memory as entry->key. Freeing it here
+                    // would trigger a memory error in the
+                    // next iteration. Instead, defer free
+                    // of this pointer to the very end.
+                    deferred_ptr = e->key;
+                } else {
+                    t->key_kill_func(e->key);
+                }
             }
-        }
-        i++;
-    }
+            if (t->value_kill_func != NULL) {
+                t->value_kill_func(e->value);
+            }
+            // Remove the list element itself.
+            array_1d_set_value(t->entries, NULL, index);
+            t->item_count--;
+            // Deallocate the table entry structure.
+            table_entry_kill(e);
 
+            if (array_1d_inspect_value(t->entries, index) == NULL)
+            {
+            table_entry *n = array_1d_inspect_value(t->entries, index++);
+            array_1d_set_value(t->entries, n, index);
+            }
+
+        } else {
+            index++;
+        }
+    }
     if (deferred_ptr != NULL) {
+        // Take care of the delayed free.
         t->key_kill_func(deferred_ptr);
     }
 }
