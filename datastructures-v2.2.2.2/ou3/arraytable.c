@@ -68,7 +68,6 @@ bool table_is_empty(const table *t)
     return t->item_count == 0;
 }
 
-// Kollar efter nästa lediga position
 void table_insert(table *t, void *key, void *value)
 {
     // Allocate the key/value structure.
