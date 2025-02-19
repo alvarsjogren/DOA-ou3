@@ -68,13 +68,24 @@ bool table_is_empty(const table *t)
     return t->item_count == 0;
 }
 
-// Kollar efter nästa lediga position
 void table_insert(table *t, void *key, void *value)
 {
     // Allocate the key/value structure.
     table_entry *e = table_entry_create(key, value);
     
-    // Funkar eftersom item count är också positionen till höger om de sista itemet
+    int index = array_1d_low(t->entries);
+
+    while (array_1d_inspect_value(t->entries, index) != NULL)
+    {
+        table_entry *n = array_1d_inspect_value(t->entries, index);
+        if (t->key_cmp_func(n->key, key) == 0)
+        {
+            table_remove(t, n->key);
+        } else {
+            index++;
+        }
+    }
+    
     array_1d_set_value(t->entries, e, t->item_count);
     t->item_count++;
 }
@@ -82,7 +93,8 @@ void table_insert(table *t, void *key, void *value)
 void *table_lookup(const table *t, const void *key)
 {
     int index = array_1d_low(t->entries);
-    while (index <= t->item_count)
+
+    while (index <= t->item_count-1)
     {
         table_entry *e = array_1d_inspect_value(t->entries, index);
 
@@ -104,10 +116,11 @@ void table_remove(table *t, const void *key)
 {
     // Will be set if we need to delay a free.
     void *deferred_ptr = NULL;
+    int items_to_remove = 0;
     int index = array_1d_low(t->entries);
 
     // Iterate over the list. Remove any entries with matching keys.
-    while (index <= t->item_count) {
+    while (index <= t->item_count-1) {
         table_entry *e = array_1d_inspect_value(t->entries, index);
         if (t->key_cmp_func(e->key, key) == 0) {
             // If we have a match, call kill on the key
@@ -129,35 +142,44 @@ void table_remove(table *t, const void *key)
             }
             // Remove the list element itself.
             array_1d_set_value(t->entries, NULL, index);
-            t->item_count--;
+            
             // Deallocate the table entry structure.
             table_entry_kill(e);
-
-            if (array_1d_inspect_value(t->entries, index) == NULL)
-            {
-            table_entry *n = array_1d_inspect_value(t->entries, index++);
-            array_1d_set_value(t->entries, n, index);
-            }
-
-        } else {
-            index++;
+            items_to_remove++;
         }
+
+        index++;
     }
     if (deferred_ptr != NULL) {
         // Take care of the delayed free.
         t->key_kill_func(deferred_ptr);
     }
+
+    index = 0;
+    while (index <= t->item_count-1)
+    {
+        if (array_1d_inspect_value(t->entries, index) == NULL)
+        {
+            table_entry *n = array_1d_inspect_value(t->entries, index+1);
+            array_1d_set_value(t->entries, n, index);
+            array_1d_set_value(t->entries, NULL, index+1);
+        }
+        index++;
+    }
+
+    t->item_count -= items_to_remove;
+    
 }
 
 void table_kill(table *t) {
 
     // Iterate over the list. Destroy all elements.
-    int i = array_1d_low(t->entries);
+    int index = array_1d_low(t->entries);
 
-    while (i <= t->max_index){
+    while (index <= t->item_count-1){
 
         // Inspect the key/value pair.
-        table_entry *e = array_1d_inspect_value(t->entries, i);
+        table_entry *e = array_1d_inspect_value(t->entries, index);
         // Kill key and/or value if given the authority to do so.
 
         if (t->key_kill_func != NULL) {
@@ -167,7 +189,7 @@ void table_kill(table *t) {
             t->value_kill_func(e->value);
         }
         // Move on to next element.
-        i++;
+        index++;
         // Deallocate the table entry structure.
         table_entry_kill(e);
     }
