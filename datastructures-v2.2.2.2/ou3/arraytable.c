@@ -11,7 +11,6 @@
 struct table {
     array_1d *entries; // The table entries are stored in a directed list
     int item_count;
-    int max_index;
     compare_function *key_cmp_func;
     kill_function key_kill_func;
     kill_function value_kill_func;
@@ -58,7 +57,6 @@ table *table_empty(compare_function *key_cmp_func,
 
     // Counts item in table
     t->item_count = 0;
-    t->max_index = 0;
 
     return t;
 }
@@ -75,7 +73,7 @@ void table_insert(table *t, void *key, void *value)
     
     int index = array_1d_low(t->entries);
 
-    while (array_1d_inspect_value(t->entries, index) != NULL)
+    while (index <= t->item_count-1)
     {
         table_entry *n = array_1d_inspect_value(t->entries, index);
         if (t->key_cmp_func(n->key, key) == 0)
@@ -205,7 +203,7 @@ void table_print(const table *t, inspect_callback_pair print_func)
     // Iterate over all elements. Call print_func on keys/values.
     int i = array_1d_low(t->entries);
 
-    while (i <= t->max_index) {
+    while (i <= t->item_count-1) {
         table_entry *e = array_1d_inspect_value(t->entries, i);
         // Call print_func
         print_func(e->key, e->value);
