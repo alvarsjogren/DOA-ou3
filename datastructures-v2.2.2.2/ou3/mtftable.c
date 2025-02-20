@@ -7,24 +7,22 @@
 #include <table.h>
 #include <dlist.h>
 
-/*
- * Implementation of a generic table for the "Datastructures and
- * algorithms" courses at the Department of Computing Science, Umea
- * University.
- *
- * Duplicates are handled by inspect and remove.
- *
- * Authors: Niclas Borlin (niclas@cs.umu.se)
+/**
+ * @file    mtftable.c
+ * 
+ * @brief   An implementation of a generic table 
+ *          using a one-directional list.
+ * 
+ * @authors Alvar Sjögren, id24asn  
+ *          Josefin Berg, id21jbg
+ *          
+ *          Based on earlier code by: 
+ *          Johan Eliasson (johane@cs.umu.se).
+ *          Niclas Borlin (niclas@cs.umu.se)
  *          Adam Dahlgren Lindstrom (dali@cs.umu.se)
- *
- * Based on earlier code by: Johan Eliasson (johane@cs.umu.se).
- *
- * Version information:
- *   v1.0  2018-02-06: First public version.
- *   v1.1  2019-02-21: Second version without dlist/memfreehandler.
- *   v1.2  2019-03-04: Bugfix in table_remove.
- *   v1.3  2024-04-15: Added table_print_internal.
- *   v2.0  2024-05-10: Updated print_internal with improved encapsulation.
+ * 
+ * @version 1.0
+ * @date    2025-02-20
  */
 
 // ===========INTERNAL DATA TYPES ============
@@ -139,6 +137,7 @@ void table_insert(table *t, void *key, void *value)
 
 /**
  * table_lookup() - Look up a given key in a table.
+ * If the key is found, the value is moved to the front of the table.
  * @table: Table to inspect.
  * @key: Key to look up.
  *
