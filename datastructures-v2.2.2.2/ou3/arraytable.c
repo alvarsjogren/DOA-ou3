@@ -11,14 +11,14 @@
  *          using an one-dimensional array.
  * 
  * @authors Alvar Sjögren, id24asn  
- *          Josefin Berg, id21jbg
+ *          Josefin Berg, id24jbg
  * @version 1.0
  * @date    2025-02-20
  */
 
 
 // Sets the maximum size of the table
-#define MAXSIZE 40000
+#define MAXSIZE 80000
 
 // ===========INTERNAL DATA TYPES ============
 
@@ -143,7 +143,6 @@ void table_insert(table *t, void *key, void *value)
 void *table_lookup(const table *t, const void *key)
 {
     int index = array_1d_low(t->entries);
-
     while (index <= t->item_count-1)
     {
         table_entry *e = array_1d_inspect_value(t->entries, index);
@@ -218,7 +217,7 @@ void table_remove(table *t, const void *key)
         index++;
     }
 
-    t->item_count -= items_to_remove;    
+    t->item_count -= items_to_remove;
 }
 
 /**
