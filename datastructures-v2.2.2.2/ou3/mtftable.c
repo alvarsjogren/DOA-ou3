@@ -14,7 +14,7 @@
  *          using a one-directional list.
  * 
  * @authors Alvar Sjögren, id24asn  
- *          Josefin Berg, id21jbg
+ *          Josefin Berg, id24jbg
  *          
  *          Based on earlier code by: 
  *          Johan Eliasson (johane@cs.umu.se).
